@@ -6,7 +6,6 @@
     <title>Labyrinth Economy: Il Prezzo del Rischio</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        /* Manteniamo la struttura originale per le notifiche/transizioni del mese */
         #floor-transition {
             display: none;
             position: absolute;
@@ -14,7 +13,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(10, 15, 10, 0.98); /* Tonalità scura verde finanziario */
+            background: rgba(10, 15, 10, 0.98);
             color: #2ecc71;
             font-family: 'Courier New', Courier, monospace;
             text-align: center;
@@ -28,29 +27,20 @@
         #floor-transition.active {
             display: flex;
         }
-        /* Allarme visivo lampeggiante per le bollette in scadenza */
-        .allarme-bolletta {
-            animation: flash-rosso 0.5s infinite alternate;
-        }
-        @keyframes flash-rosso {
-            from { box-shadow: 0 0 10px rgba(231, 76, 60, 0.2); border-color: #424949; }
-            to { box-shadow: 0 0 35px rgba(231, 76, 60, 0.8); border-color: #e74c3c; }
-        }
     </style>
 </head>
 <body>
 
-    <h1>🎮 LABYRINTH ECONOMY: IL PREZZO DEL RISCHIO</h1>
+    <h1>LABYRINTH ECONOMY</h1>
     
     <div id="canvas-container">
         <canvas id="gameCanvas" width="640" height="480"></canvas>
-        
         <div id="ui">
-            <div>CONTO CORRENTE: <span id="conto-corrente" style="color: #2ecc71;">100</span>€</div>
-            <div>FONDO EMERGENZA: <span id="fondo-emergenza" style="color: #3498db;">0</span>€</div>
-            <div>RISCHIO: <span id="moltiplicatore-rischio" style="color: #e67e22;">1.0</span>x</div>
-            <div>FELICITÀ: <span id="punteggio-felicita" style="color: #f1c40f;">0</span></div>
-            <div>TEMPO: <span id="timer-mese" style="color: #e74c3c;">60</span>s</div>
+            <div>CONTO: <span id="health" style="color: #2ecc71;">1000</span>€</div>
+            <div>FONDO: <span id="shield" style="color: #3498db;">0</span>€</div>
+            <div>RISCHIO: x<span id="ammo" style="color: #e74c3c;">1.0</span></div>
+            <div>FELICITÀ: <span id="score" style="color: #f1c40f;">0</span></div>
+            <div>TEMPO: <span id="timer" style="color: #e67e22;">60</span>s</div>
         </div>
 
         <div id="floor-transition">
@@ -59,18 +49,11 @@
         </div>
     </div>
 
-    <div class="instructions" style="margin-top: 15px; text-align: left; display: inline-block; max-width: 640px; background: rgba(20,20,20,0.8); padding: 15px; border-left: 4px solid #2ecc71;">
-        <strong>[MANUALE DI SOPRAVVIVENZA FINANZIARIA]</strong><br>
-        1. Clicca sull'area del labirinto per bloccare il puntatore del mouse e iniziare.<br>
-        2. Muoviti con <strong>WASD / Frecce Direzionali</strong> e ruota la visuale col mouse.<br>
-        3. <strong>Meccaniche del Labirinto:</strong><br>
-        &nbsp;&nbsp;💰 <em>Stipendio (Monete Verdi):</em> Ricarica il tuo Conto Corrente (la tua linfa vitale).<br>
-        &nbsp;&nbsp;🎮 <em>Sfizio (Console/Vestiti):</em> Aumenta la Felicità (il tuo vero punteggio finale).<br>
-        &nbsp;&nbsp;⚠️ <em>Bolletta (Lettera Gialla):</em> Raccoglila prima che il timer scada o dimezzerà il tuo conto!<br>
-        &nbsp;&nbsp;🛑 <em>Phishing (Monete Glitchate):</em> Ti congela sul posto per 3 secondi lasciandoti vulnerabile.<br>
-        &nbsp;&nbsp;🏦 <em>Fondo di Emergenza (Cassaforte):</em> Toccala per mettere al sicuro i tuoi soldi dal mostro, ma azzererà il Moltiplicatore di Rischio.<br>
-        &nbsp;&nbsp;📉 <em>Mostro dell'Inflazione (Ombra):</em> Ti insegue. Se ti raggiunge, prosciuga i tuoi soldi al secondo!<br>
-        <strong>Bilancia il rischio: più soldi hai nel Conto Corrente, più corri veloce e accumuli Felicità, ma l'Inflazione ti colpirà più duramente!</strong>
+    <div class="instructions">
+        <strong>[SIMULATORE DI MANAGEMENT FINANZIARIO E DI RISCHIO]</strong><br>
+        1. Clicca sul canvas per bloccare la visuale e avviare il sintetizzatore di mercato.<br>
+        <strong>MOVIMENTO:</strong> Tasti <strong>W, A, S, D</strong> o Frecce | <strong>VISUALE:</strong> Muovi il mouse<br>
+        <strong>STRATEGIA:</strong> Raccogli gli stipendi e gli sfizi. Tocca le <strong>Cassaforti</strong> per salvare i liquidi nel Fondo prima che l'Inflazione ti colpisca!
     </div>
 
     <script src="maps.js"></script>
