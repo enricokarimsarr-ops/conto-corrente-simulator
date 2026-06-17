@@ -172,6 +172,11 @@ function updateEntities(dt) {
 }
 
 // MOTORE DI RENDERING 3D (RAYCASTING PSEUDO-3D MATEMATICO)
+// 1. Carichiamo l'immagine di Matrix per le pareti (inserisci questo in cima a engine.js o sopra renderWalls)
+const imgMuro = new Image();
+imgMuro.src = 'muromatrix.png';
+
+// 2. FUNZIONE RENDER WALLS AGGIORNATA
 function renderWalls() {
     for (let x = 0; x < width; x++) {
         let cameraX = 2 * x / width - 1;
@@ -212,19 +217,41 @@ function renderWalls() {
         let drawEnd = lineHeight / 2 + height / 2;
         if (drawEnd >= height) drawEnd = height - 1;
 
-        // Palette cromatica stile Matrix Finanziaria
-        let wallColor = side === 1 ? '#11171d' : '#1c252e';
-        if (map[mapY][mapX] === 9) wallColor = '#2ecc71'; // Varco verde smeraldo di fine trimestre
+        // ---- CALCOLO DELLA TEXTURE DEL MURO ----
+        let wallX; 
+        if (side === 0) wallX = player.y + perpWallDist * rayDirY;
+        else wallX = player.x + perpWallDist * rayDirX;
+        wallX -= Math.floor(wallX);
 
-        ctx.strokeStyle = wallColor;
-        ctx.beginPath(); ctx.moveTo(x, drawStart); ctx.lineTo(x, drawEnd); ctx.stroke();
+        // Coordinata X sulla texture muromatrix.png
+        let texX = Math.floor(wallX * imgMuro.width);
+        if (side === 0 && rayDirX > 0) texX = imgMuro.width - texX - 1;
+        if (side === 1 && rayDirY < 0) texX = imgMuro.width - texX - 1;
 
-        // Disegno pavimenti e soffitti scuri per massimizzare il contrasto degli sprite
+        if (map[mapY][mapX] === 9) {
+            // Varco verde di fine livello (disegnato liscio senza texture)
+            ctx.strokeStyle = '#2ecc71';
+            ctx.beginPath(); ctx.moveTo(x, drawStart); ctx.lineTo(x, drawEnd); ctx.stroke();
+        } else if (imgMuro.complete) {
+            // Se l'immagine è caricata, disegna la singola colonna di texture muromatrix
+            ctx.drawImage(imgMuro, texX, 0, 1, imgMuro.height, x, drawStart, 1, drawEnd - drawStart);
+            
+            // Effetto ombra per dare profondità alle pareti laterali (lato side === 1)
+            if (side === 1) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                ctx.fillRect(x, drawStart, 1, drawEnd - drawStart);
+            }
+        } else {
+            // Fallback se l'immagine sta ancora caricando
+            ctx.strokeStyle = side === 1 ? '#11171d' : '#1c252e';
+            ctx.beginPath(); ctx.moveTo(x, drawStart); ctx.lineTo(x, drawEnd); ctx.stroke();
+        }
+
+        // Disegno pavimenti e soffitti scuri
         ctx.fillStyle = '#06090c'; ctx.fillRect(x, 0, 1, drawStart);
         ctx.fillStyle = '#0f1418'; ctx.fillRect(x, drawEnd, 1, height - drawEnd);
     }
 }
-
 // STRUTTURA DEL TRAGUARDO DI FINE MESE
 function handleLevelCompletion() {
     if (window.isTransitioning) return;
