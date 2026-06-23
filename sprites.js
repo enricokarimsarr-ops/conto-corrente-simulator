@@ -10,18 +10,20 @@ function caricaImmagine(chiave, percorso) {
     immaginiGioco[chiave].src = percorso;
 }
 
-// Assicurati che i nomi dei file nella tua cartella corrispondano a questi:
-caricaImmagine('salary', 'soldi.png');         // Soldi da raccogliere (Aumenta Liquidità/Conto)
-caricaImmagine('luxury', 'lusso.png');         // Sfizi / Beni di lusso (Aumenta Felicità)
-caricaImmagine('safe', 'cassaforte.png');     // Cassaforte (Sposta fondi nel Fondo protetto)
-caricaImmagine('bill', 'bolletta.png');       // Bolletta imprevista (Scadenza a tempo)
-caricaImmagine('phishing', 'fishhook.png');   // Amo da pesca statico (Trappola informatica che congela)
-caricaImmagine('inflation', 'mostro.png');     // Mostro dell'inflazione (Nemico mobile nel labirinto)
+// Caricamento dei file presenti nella tua cartella
+caricaImmagine('salary', 'soldi.png');         // Guadagno base
+caricaImmagine('luxury1', 'lusso.png');        // Primo sfizio (es. vestito)
+caricaImmagine('luxury2', 'lussso.png');       // Secondo sfizio (es. diamante)
+caricaImmagine('luxury3', 'lusssso.png');      // Terzo sfizio (es. altro lusso)
+caricaImmagine('safe', 'cassaforte.png');       // Cassaforte per protezione fondi
+caricaImmagine('bill', 'boletta.png');         // Bolletta imprevista a tempo
+caricaImmagine('phishing', 'fishhook.png');     // Amo da pesca statico (trappola)
+caricaImmagine('inflation', 'mostro.png');     // Mostro mobile dell'inflazione
 
 let enemies = [];
 let items = [];
 
-// 2. DATABASE DEI LIVELLI (Mappatura coerente al 100%)
+// 2. DATABASE DEI LIVELLI
 const levelSpritesDatabase = {
     1: {
         enemies: [
@@ -67,9 +69,17 @@ const levelSpritesDatabase = {
 function LoadLevelSprites(levelNumber) {
     const levelData = levelSpritesDatabase[levelNumber];
     if (!levelData) return;
-    // Clona gli oggetti per evitare di modificare permanentemente il database durante il gameplay
+    
     enemies = levelData.enemies.map(enemy => ({ ...enemy }));
-    items = levelData.items.map(item => ({ ...item }));
+    
+    // Quando carichiamo gli oggetti, assegniamo una variante estetica casuale (1, 2 o 3) a quelli di tipo 'luxury'
+    items = levelData.items.map(item => {
+        let newItem = { ...item };
+        if (newItem.type === 'luxury') {
+            newItem.variant = Math.floor(Math.random() * 3) + 1;
+        }
+        return newItem;
+    });
 }
 
 function respawnItem(item) {
@@ -83,20 +93,25 @@ function respawnItem(item) {
                 item.x = rx + 0.5;
                 item.y = ry + 0.5;
                 item.active = true;
+                
+                // Cambia casualmente l'aspetto del lusso anche quando riappare (respawn)
+                if (item.type === 'luxury') {
+                    item.variant = Math.floor(Math.random() * 3) + 1;
+                }
+                
                 spawned = true;
             }
         }
     }, 7000); 
 }
 
-// 3. MOTORE DI RENDERING AGGIORNATO (Senza ricicli confusi)
+// 3. MOTORE DI RENDERING SINCRETICO AGGIORNATO
 function drawSprites(ctx, player, width, height, zBuffer, globalAnimTime) {
     let sprites = [];
-    // Raggruppa solo le entità attive sulla mappa
-    items.forEach(item => { if (item.active) sprites.push({ x: item.x, y: item.y, type: item.type }); });
+    items.forEach(item => { if (item.active) sprites.push({ x: item.x, y: item.y, type: item.type, variant: item.variant }); });
     enemies.forEach(enemy => { if (enemy.alive) sprites.push({ x: enemy.x, y: enemy.y, type: enemy.type, health: enemy.health }); });
 
-    // Ordinamento dal più lontano al più vicino (algoritmo del pittore fondamentale per il Raycasting)
+    // Ordina dal più lontano al più vicino
     sprites.sort((a, b) => {
         let distA = ((player.x - a.x) * (player.x - a.x) + (player.y - a.y) * (player.y - a.y));
         let distB = ((player.x - b.x) * (player.x - b.x) + (player.y - b.y) * (player.y - b.y));
@@ -113,10 +128,8 @@ function drawSprites(ctx, player, width, height, zBuffer, globalAnimTime) {
         if (transformY > 0) {
             let spriteScreenX = Math.floor((width / 2) * (1 + transformX / transformY));
             
-            // Effetto ondeggiamento verticale oscillante continuo (floating)
+            // Effetto oscillazione verticale
             let bobbing = Math.sin(globalAnimTime * 2.0) * 12;
-            
-            // Gestione scala: l'Inflazione Boss del livello 3 (health > 10) appare gigante
             let scale = (sprite.type === 'inflation' && sprite.health > 10) ? 2.5 : 1.0; 
             
             let spriteHeight = Math.abs(Math.floor(height / transformY)) * scale;
@@ -125,23 +138,30 @@ function drawSprites(ctx, player, width, height, zBuffer, globalAnimTime) {
             let drawStartX = Math.floor(-spriteWidth / 2 + spriteScreenX);
             let drawStartY = Math.floor(-spriteHeight / 2 + height / 2 + bobbing);
 
-            // Controllo della visibilità tramite Z-Buffer (evita che gli sprite varchino i muri)
             let centroX = Math.floor(spriteScreenX);
             if (centroX >= 0 && centroX < width && transformY < zBuffer[centroX]) {
                 
-                let img = immaginiGioco[sprite.type];
+                // Determina la chiave corretta dell'immagine (gestendo la variante per il lusso)
+                let chiaveImmagine = sprite.type;
+                if (sprite.type === 'luxury') {
+                    chiaveImmagine = 'luxury' + (sprite.variant || 1);
+                }
                 
-                // Se il file d'immagine esiste ed è caricato correttamente, disegnalo
+                let img = immaginiGioco[chiaveImmagine];
+                
+                // Se l'immagine è caricata a schermo, la disegna
                 if (img && img.complete && img.naturalWidth !== 0) {
                     ctx.drawImage(img, drawStartX, drawStartY, spriteWidth, spriteHeight);
                 } else {
-                    // FALLBACK: Se dimentichi un file PNG nella cartella, disegna un cubo colorato di emergenza
+                    // FALLBACK VISIVO BEN DISTINTO IN CASO DI IMMAGINI MANCANTI
                     if (sprite.type === 'inflation' || sprite.type === 'phishing' || sprite.type === 'bill') {
-                        ctx.fillStyle = '#e74c3c'; // Rosso per le minacce/scadenze
+                        ctx.fillStyle = '#e74c3c'; // ROSSO per pericoli e bollette
                     } else if (sprite.type === 'luxury') {
-                        ctx.fillStyle = '#f1c40f'; // Oro per gli sfizi
+                        ctx.fillStyle = '#f1c40f'; // ORO/GIALLO per gli sfizi di lusso
+                    } else if (sprite.type === 'safe') {
+                        ctx.fillStyle = '#3498db'; // BLU per la cassaforte
                     } else {
-                        ctx.fillStyle = '#2ecc71'; // Verde per i guadagni/sicurezza
+                        ctx.fillStyle = '#2ecc71'; // VERDE SMERALDO solo per i soldi (salary)
                     }
                     ctx.fillRect(drawStartX, drawStartY, spriteWidth, spriteHeight);
                 }
