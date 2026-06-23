@@ -17,25 +17,52 @@ let bankruptcyReason = "";
 
 window.isTransitioning = false;
 
-// Attivazione audio e lock del mouse su click
+// -------------------------------------------------------------------------
+// CORREZIONE ASSET E PARACADUTE DI SICUREZZA (Risolve gli elementi invisibili)
+// -------------------------------------------------------------------------
+const imgMuro = new Image();
+imgMuro.src = 'muromatrix.png';
+
+// Dal momento che 'soldi.png' e gli asset dello 'sfizio' non sono fisicamente presenti,
+// intercettiamo il dizionario globale delle immagini per mapparli su file validi (cassaforte e amo).
+// In questo modo eviti elementi invisibili a schermo e il motore grafico li disegnerà correttamente.
+function applicaFallbackAsset() {
+    if (typeof immaginiGioco !== 'undefined') {
+        if (!immaginiGioco['salary'] || immaginiGioco['salary'].src.includes('soldi.png')) {
+            immaginiGioco['salary'] = new Image();
+            immaginiGioco['salary'].src = 'cassaforte.png'; // Fallback visivo
+        }
+        if (!immaginiGioco['luxury']) {
+            immaginiGioco['luxury'] = new Image();
+            immaginiGioco['luxury'].src = 'fishhook.png'; // Fallback visivo
+        }
+    }
+}
+// Eseguiamo il patch subito dopo il caricamento iniziale
+setTimeout(applicaFallbackAsset, 200);
+
+// -------------------------------------------------------------------------
+// REQUISITI DI INPUT E RESET
+// -------------------------------------------------------------------------
 container.addEventListener('click', () => {
     if (typeof initAudio === 'function') initAudio(); 
     if (!gameOver) canvas.requestPointerLock();
 });
 
-// Ascolto della tastiera per il riavvio (R)
 window.addEventListener('keydown', e => {
     if (gameOver && e.key.toLowerCase() === 'r') resetGame();
 });
 
-// FUNZIONE REINTEGRATA DI MOVIMENTO E COLLISIONE PARETI
+// FUNZIONE DI MOVIMENTO E COLLISIONE PARETI
 function movePlayer() {
     let baseSpeed = 0.045;
-    // Richiama la velocità modificata dinamicamente dal Moltiplicatore di Rischio in player.js
     let moveSpeed = (typeof getMoveSpeed === 'function') ? getMoveSpeed(baseSpeed) : baseSpeed;
 
     let moveX = 0;
     let moveY = 0;
+
+    let attualeMappa = (typeof map !== 'undefined') ? map : gameMaps[currentLevel];
+    if (!attualeMappa) return;
 
     if (keys['w'] || keys['arrowup']) {
         moveX += player.dirX * moveSpeed;
@@ -46,12 +73,10 @@ function movePlayer() {
         moveY -= player.dirY * moveSpeed;
     }
     if (keys['a'] || keys['arrowleft']) {
-        // Movimento laterale (Strafe) sinistro
         moveX -= player.planeX * moveSpeed;
         moveY -= player.planeY * moveSpeed;
     }
     if (keys['d'] || keys['arrowright']) {
-        // Movimento laterale (Strafe) destro
         moveX += player.planeX * moveSpeed;
         moveY += player.planeY * moveSpeed;
     }
@@ -59,35 +84,72 @@ function movePlayer() {
     let newX = player.x + moveX;
     let newY = player.y + moveY;
 
-    // Controllo collisioni (0 = Spazio libero, 9 = Varco di fine trimestre)
-    if (map[Math.floor(player.y)][Math.floor(newX)] === 0 || map[Math.floor(player.y)][Math.floor(newX)] === 9) player.x = newX;
-    if (map[Math.floor(newY)][Math.floor(player.x)] === 0 || map[Math.floor(newY)][Math.floor(player.x)] === 9) player.y = newY;
+    if (attualeMappa[Math.floor(player.y)][Math.floor(newX)] === 0 || attualeMappa[Math.floor(player.y)][Math.floor(newX)] === 9) player.x = newX;
+    if (attualeMappa[Math.floor(newY)][Math.floor(player.x)] === 0 || attualeMappa[Math.floor(newY)][Math.floor(player.x)] === 9) player.y = newY;
 }
 
-// LOGICA AGGIORNAMENTO ENTITÀ, MANAGEMENT DEL RISCHIO E SCADENZE
+// -------------------------------------------------------------------------
+// INTERAZIONE MANUALE CASSAFORTE (PILASTRO 2)
+// -------------------------------------------------------------------------
+// Invocata da player.js premendo SPAZIO o 'E'. Rimosso l'automatismo a collisione involontaria!
+function checkSafeInteraction() {
+    if (gameOver || window.isTransitioning) return;
+    
+    items.forEach(item => {
+        if (item.active && item.type === 'safe') {
+            let idx = player.x - item.x;
+            let idy = player.y - item.y;
+            let idist = Math.sqrt(idx * idx + idy * idy);
+
+            // Raggio d'azione utile per l'interazione davanti alla cassaforte
+            if (idist < 1.0) {
+                if (player.bankAccount > 0) {
+                    player.savedFunds += player.bankAccount;
+                    player.bankAccount = 0; // Tasche svuotate completamente! Velocità al minimo, rischio azzerato
+                    if (typeof playSafeSound === 'function') playSafeSound();
+                }
+            }
+        }
+    });
+}
+
+// -------------------------------------------------------------------------
+// AGGIORNAMENTO ENTITÀ, LOGICA FINANZIARIA E SCADENZE
+// -------------------------------------------------------------------------
 function updateEntities(dt) {
-    // 1. Inseguimento del Mostro dell'Inflazione
+    let attualeMappa = (typeof map !== 'undefined') ? map : gameMaps[currentLevel];
+    if (!attualeMappa) return;
+
+    // 1. COMPORTAMENTO NEMICI (Muove SOLO l'Inflazione!)
     enemies.forEach(e => {
         if (e.alive) {
             let dx = player.x - e.x;
             let dy = player.y - e.y;
             let dist = Math.sqrt(dx * dx + dy * dy);
             
-            if (dist > 0.25) {
-                let nx = e.x + (dx / dist) * e.speed;
-                let ny = e.y + (dy / dist) * e.speed;
-                if (map[Math.floor(ny)][Math.floor(nx)] === 0) {
-                    e.x = nx; e.y = ny;
+            // FILTRO ESSENZIALE: Solo il mostro dell'inflazione insegue il giocatore. Il Phishing resta statico.
+            if (e.type === 'inflation') {
+                if (dist > 0.25) {
+                    let nx = e.x + (dx / dist) * e.speed;
+                    let ny = e.y + (dy / dist) * e.speed;
+                    if (attualeMappa[Math.floor(ny)][Math.floor(nx)] === 0) {
+                        e.x = nx; e.y = ny;
+                    }
                 }
             }
             
-            // Se l'Inflazione ti afferra, prosciuga il conto corrente (€60 al secondo)
-            if (dist < 0.45) {
-                let drain = Math.floor(60 * dt);
-                player.bankAccount -= drain;
+            // EFFETTO INFLAZIONE (PILASTRO 1 - Erosione in percentuale)
+            if (dist < 0.45 && e.type === 'inflation') {
+                // Sottrae esattamente il 5% al secondo sulla base della liquidità corrente
+                let loss = player.bankAccount * 0.05 * dt;
+                
+                // Paracadute matematico: se il conto è bassissimo, garantisci un decremento minimo per poter scendere a 0
+                if (loss < 1 * dt && player.bankAccount > 0) loss = 1 * dt;
+                
+                player.bankAccount -= loss;
                 if (typeof playDrainSound === 'function') playDrainSound();
                 
-                if (player.bankAccount <= 0) {
+                if (player.bankAccount <= 0.5) {
                     player.bankAccount = 0;
                     bankruptcyReason = "L'Inflazione Galoppante ha prosciugato tutta la tua liquidità libera!";
                     gameOver = true;
@@ -96,24 +158,22 @@ function updateEntities(dt) {
         }
     });
 
-    // 2. Interazione con gli elementi finanziari e Trappole
+    // 2. INTERAZIONE ELEMENTI FINANZIARI (Oggetti statici e trappole)
     items.forEach(item => {
         if (!item.active) return;
 
-        // Comportamento Speciale: La Bolletta ha una scadenza temporale fissa!
+        // Comportamento Scadenza Bolletta (Mantiene la sua logica temporale)
         if (item.type === 'bill') {
-            if (!item.timeLeft) item.timeLeft = 8.0; // 8 secondi per pagarla prima del collasso
+            if (!item.timeLeft) item.timeLeft = 8.0; 
             item.timeLeft -= dt;
             
-            // Allarme visivo intermittente se la scadenza è vicina
             if (item.timeLeft < 3.0 && Math.floor(globalAnimTime * 5) % 2 === 0) {
                 ctx.fillStyle = 'rgba(231, 76, 60, 0.18)';
                 ctx.fillRect(0, 0, width, height);
             }
 
             if (item.timeLeft <= 0) {
-                // Penale disastrosa: dimezza istantaneamente il Conto Corrente!
-                player.bankAccount = Math.floor(player.bankAccount / 2);
+                player.bankAccount = Math.floor(player.bankAccount / 2); // Penale dimezzamento conto
                 item.active = false;
                 if (typeof playAlarmSound === 'function') playAlarmSound();
                 
@@ -130,15 +190,15 @@ function updateEntities(dt) {
         let idy = player.y - item.y;
         let idist = Math.sqrt(idx * idx + idy * idy);
 
+        // Collisione ed assorbimento oggetti (Esclusa la Cassaforte che ora è manuale)
         if (idist < 0.45) {
             if (item.type === 'salary') {
-                player.bankAccount += 350; // Stipendio incassato
+                player.bankAccount += 350; 
                 item.active = false;
                 if (typeof playCashSound === 'function') playCashSound();
                 respawnItem(item);
             } 
             else if (item.type === 'luxury') {
-                // Gli Sfizi incrementano i punti felicità basandosi sul Moltiplicatore di Rischio attuale
                 let points = Math.floor(100 * player.riskMultiplier);
                 player.happinessScore += points;
                 item.active = false;
@@ -146,38 +206,49 @@ function updateEntities(dt) {
                 respawnItem(item);
             } 
             else if (item.type === 'phishing') {
-                // Attiva lo stato alterato di congelamento inserito in player.js
                 player.isFrozen = true;
-                player.frozenTimer = 180; // 3 secondi di blocco totale delle transazioni/movimenti
+                player.frozenTimer = 180; // 3 secondi di congelamento transazioni
                 item.active = false;
                 if (typeof playGlitchSound === 'function') playGlitchSound();
                 respawnItem(item);
             } 
             else if (item.type === 'bill') {
-                item.active = false; // Bolletta saldata in tempo
+                item.active = false; 
                 if (typeof playBillPaySound === 'function') playBillPaySound();
                 respawnItem(item);
-            } 
-            else if (item.type === 'safe') {
-                // Fondo di Emergenza: Sposta la liquidità a rischio al sicuro lasciando 200€ sul conto per spese correnti
-                if (player.bankAccount > 200) {
-                    let deposit = player.bankAccount - 200;
-                    player.savedFunds += deposit;
-                    player.bankAccount = 200;
-                    if (typeof playSafeSound === 'function') playSafeSound();
-                }
             }
         }
     });
 }
 
-// MOTORE DI RENDERING 3D (RAYCASTING PSEUDO-3D MATEMATICO)
-// 1. Carichiamo l'immagine di Matrix per le pareti (inserisci questo in cima a engine.js o sopra renderWalls)
-const imgMuro = new Image();
-imgMuro.src = 'muromatrix.png';
+// RIGENERAZIONE PROTETTA ELEMENTI (Previene crash di funzioni mancanti)
+function respawnItem(item) {
+    if (gameOver) return;
+    setTimeout(() => {
+        let attualeMappa = (typeof map !== 'undefined') ? map : gameMaps[currentLevel];
+        if (gameOver || !attualeMappa) return;
+        
+        let x, y, tentativi = 0;
+        do {
+            x = Math.floor(Math.random() * 14) + 1;
+            y = Math.floor(Math.random() * 14) + 1;
+            tentativi++;
+        } while (attualeMappa[y] && attualeMappa[y][x] !== 0 && tentativi < 100);
 
-// 2. FUNZIONE RENDER WALLS AGGIORNATA
+        item.x = x + 0.5;
+        item.y = y + 0.5;
+        item.active = true;
+        if (item.type === 'bill') item.timeLeft = 8.0;
+    }, 6000);
+}
+
+// -------------------------------------------------------------------------
+// MOTORE DI RENDERING 3D (RAYCASTING PSEUDO-3D)
+// -------------------------------------------------------------------------
 function renderWalls() {
+    let attualeMappa = (typeof map !== 'undefined') ? map : gameMaps[currentLevel];
+    if (!attualeMappa) return;
+
     for (let x = 0; x < width; x++) {
         let cameraX = 2 * x / width - 1;
         let rayDirX = player.dirX + player.planeX * cameraX;
@@ -203,7 +274,7 @@ function renderWalls() {
         while (hit === 0) {
             if (sideDistX < sideDistY) { sideDistX += deltaDistX; mapX += stepX; side = 0; } 
             else { sideDistY += deltaDistY; mapY += stepY; side = 1; }
-            if (map[mapY][mapX] > 0) hit = 1;
+            if (attualeMappa[mapY] && attualeMappa[mapY][mapX] > 0) hit = 1;
         }
 
         if (side === 0) perpWallDist = (sideDistX - deltaDistX);
@@ -217,42 +288,34 @@ function renderWalls() {
         let drawEnd = lineHeight / 2 + height / 2;
         if (drawEnd >= height) drawEnd = height - 1;
 
-        // ---- CALCOLO DELLA TEXTURE DEL MURO ----
         let wallX; 
         if (side === 0) wallX = player.y + perpWallDist * rayDirY;
         else wallX = player.x + perpWallDist * rayDirX;
         wallX -= Math.floor(wallX);
 
-        // Coordinata X sulla texture muromatrix.png
         let texX = Math.floor(wallX * imgMuro.width);
         if (side === 0 && rayDirX > 0) texX = imgMuro.width - texX - 1;
         if (side === 1 && rayDirY < 0) texX = imgMuro.width - texX - 1;
 
-        if (map[mapY][mapX] === 9) {
-            // Varco verde di fine livello (disegnato liscio senza texture)
+        if (attualeMappa[mapY][mapX] === 9) {
             ctx.strokeStyle = '#2ecc71';
             ctx.beginPath(); ctx.moveTo(x, drawStart); ctx.lineTo(x, drawEnd); ctx.stroke();
         } else if (imgMuro.complete) {
-            // Se l'immagine è caricata, disegna la singola colonna di texture muromatrix
             ctx.drawImage(imgMuro, texX, 0, 1, imgMuro.height, x, drawStart, 1, drawEnd - drawStart);
-            
-            // Effetto ombra per dare profondità alle pareti laterali (lato side === 1)
             if (side === 1) {
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
                 ctx.fillRect(x, drawStart, 1, drawEnd - drawStart);
             }
         } else {
-            // Fallback se l'immagine sta ancora caricando
             ctx.strokeStyle = side === 1 ? '#11171d' : '#1c252e';
             ctx.beginPath(); ctx.moveTo(x, drawStart); ctx.lineTo(x, drawEnd); ctx.stroke();
         }
 
-        // Disegno pavimenti e soffitti scuri
         ctx.fillStyle = '#06090c'; ctx.fillRect(x, 0, 1, drawStart);
         ctx.fillStyle = '#0f1418'; ctx.fillRect(x, drawEnd, 1, height - drawEnd);
     }
 }
-// STRUTTURA DEL TRAGUARDO DI FINE MESE
+
 function handleLevelCompletion() {
     if (window.isTransitioning) return;
     window.isTransitioning = true;
@@ -267,10 +330,9 @@ function handleLevelCompletion() {
 
         setTimeout(() => {
             currentLevel++;
-            LoadCorporateLevel(currentLevel);
-            LoadLevelSprites(currentLevel);
+            if (typeof LoadCorporateLevel === 'function') LoadCorporateLevel(currentLevel);
+            if (typeof LoadLevelSprites === 'function') LoadLevelSprites(currentLevel);
             
-            // Riposizionamento asset di sicurezza
             player.x = 1.5; player.y = 1.5;
             player.dirX = 1.0; player.dirY = 0.0;
             player.planeX = 0.0; player.planeY = 0.66;
@@ -284,7 +346,9 @@ function handleLevelCompletion() {
     }
 }
 
-// SCHERMATE FINALI DI STATO
+// -------------------------------------------------------------------------
+// INTERFACCIA UTENTE E SCHERMATE DI STATO
+// -------------------------------------------------------------------------
 function drawVictoryScreen() {
     ctx.fillStyle = 'rgba(7, 18, 12, 0.96)'; ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = '#2ecc71'; ctx.font = "bold 34px 'Courier New'"; ctx.textAlign = "center";
@@ -292,8 +356,8 @@ function drawVictoryScreen() {
     
     ctx.fillStyle = '#ecf0f1'; ctx.font = "17px 'Courier New'";
     ctx.fillText("Strategia finanziaria eccellente. Sei stabile ed immune alle crisi.", width / 2, height / 2 - 10);
-    ctx.fillText("Punteggio Felicità Raggiunto: " + player.happinessScore, width / 2, height / 2 + 25);
-    ctx.fillText("Fondo di Riserva accumulato: " + player.savedFunds + "€", width / 2, height / 2 + 50);
+    ctx.fillText("Punteggio Felicità Raggiunto: " + Math.floor(player.happinessScore), width / 2, height / 2 + 25);
+    ctx.fillText("Fondo di Riserva accumulato: " + Math.floor(player.savedFunds) + "€", width / 2, height / 2 + 50);
     
     ctx.fillStyle = '#7f8c8d'; ctx.font = "14px 'Courier New'";
     ctx.fillText("Premi 'R' per avviare una nuova simulazione di investimento", width / 2, height / 2 + 110);
@@ -302,28 +366,30 @@ function drawVictoryScreen() {
 function drawGameOverScreen() {
     ctx.fillStyle = 'rgba(20, 10, 12, 0.97)'; ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = '#e74c3c'; ctx.font = "bold 36px 'Courier New'"; ctx.textAlign = "center";
-    ctx.fillText("DICEHIARAZIONE DI BANCAROTTA", width / 2, height / 2 - 40);
+    ctx.fillText("DICHIARAZIONE DI BANCAROTTA", width / 2, height / 2 - 40);
     
     ctx.fillStyle = '#ecf0f1'; ctx.font = "16px 'Courier New'";
     let reason = bankruptcyReason || "Il saldo del tuo conto corrente è sceso al di sotto dello zero.";
     ctx.fillText(reason, width / 2, height / 2 + 15);
     
     ctx.fillStyle = '#f1c40f';
-    ctx.fillText("Punteggio Felicità Finale: " + player.happinessScore, width / 2, height / 2 + 50);
+    ctx.fillText("Punteggio Felicità Finale: " + Math.floor(player.happinessScore), width / 2, height / 2 + 50);
     
     ctx.fillStyle = '#7f8c8d'; ctx.font = "13px 'Courier New'";
     ctx.fillText("Premi 'R' per rifinanziare il debito (Ricomincia)", width / 2, height / 2 + 110);
 }
 
-// MINIMAPPA LOGICA DELLA VOLATILITÀ
 function drawMinimap() {
     let size = 4;
+    let attualeMappa = (typeof map !== 'undefined') ? map : gameMaps[currentLevel];
+    if (!attualeMappa) return;
+
     ctx.fillStyle = 'rgba(11, 16, 22, 0.75)'; ctx.fillRect(10, 10, 16 * size, 16 * size);
 
     for (let y = 0; y < 16; y++) {
         for (let x = 0; x < 16; x++) {
-            if (map[y][x] === 1) { ctx.fillStyle = '#232d37'; ctx.fillRect(10 + x*size, 10 + y*size, size, size); } 
-            else if (map[y][x] === 9) { ctx.fillStyle = '#2ecc71'; ctx.fillRect(10 + x*size, 10 + y*size, size, size); }
+            if (attualeMappa[y] && attualeMappa[y][x] === 1) { ctx.fillStyle = '#232d37'; ctx.fillRect(10 + x*size, 10 + y*size, size, size); } 
+            else if (attualeMappa[y] && attualeMappa[y][x] === 9) { ctx.fillStyle = '#2ecc71'; ctx.fillRect(10 + x*size, 10 + y*size, size, size); }
         }
     }
     ctx.fillStyle = '#f1c40f'; ctx.fillRect(10 + Math.floor(player.x * size) - 1, 10 + Math.floor(player.y * size) - 1, 3, 3);
@@ -332,14 +398,13 @@ function drawMinimap() {
 }
 
 function updateUI() {
-    document.getElementById('health').innerText = player.bankAccount;
-    document.getElementById('shield').innerText = player.savedFunds;
+    document.getElementById('health').innerText = Math.floor(player.bankAccount);
+    document.getElementById('shield').innerText = Math.floor(player.savedFunds);
     document.getElementById('ammo').innerText = player.riskMultiplier.toFixed(1);
-    document.getElementById('score').innerText = player.happinessScore;
+    document.getElementById('score').innerText = Math.floor(player.happinessScore);
     document.getElementById('timer').innerText = Math.ceil(gameTimer);
 }
 
-// SISTEMA DI RESET COMPRENSIVO
 function resetGame() {
     player.bankAccount = 1000;
     player.savedFunds = 0;
@@ -352,8 +417,9 @@ function resetGame() {
     player.planeX = 0.0; player.planeY = 0.66;
     
     currentLevel = 1;
-    LoadCorporateLevel(currentLevel);
-    LoadLevelSprites(currentLevel);
+    if (typeof LoadCorporateLevel === 'function') LoadCorporateLevel(currentLevel);
+    if (typeof LoadLevelSprites === 'function') LoadLevelSprites(currentLevel);
+    
     gameTimer = 60;
     gameOver = false;
     bankruptcyReason = "";
@@ -366,7 +432,9 @@ function resetGame() {
     requestAnimationFrame(gameLoop);
 }
 
+// -------------------------------------------------------------------------
 // LOOP CENTRALE DEL SIMULATORE
+// -------------------------------------------------------------------------
 function gameLoop(currentTime) {
     if (gameOver) {
         if (player.bankAccount <= 0) drawGameOverScreen();
@@ -396,10 +464,29 @@ function gameLoop(currentTime) {
 
     ctx.clearRect(0, 0, width, height);
     renderWalls();
-    if (typeof drawSprites === 'function') drawSprites(ctx, player, width, height, zBuffer, globalAnimTime);
+    
+    if (typeof drawSprites === 'function') {
+        drawSprites(ctx, player, width, height, zBuffer, globalAnimTime);
+    }
+    
+    // INTEGRAZIONE: Mostra a schermo il prompt interattivo quando si è vicini alla Cassaforte
+    let vicinoCassaforte = false;
+    items.forEach(item => {
+        if (item.active && item.type === 'safe') {
+            let dist = Math.sqrt((player.x - item.x)**2 + (player.y - item.y)**2);
+            if (dist < 1.0) vicinoCassaforte = true;
+        }
+    });
+    if (vicinoCassaforte) {
+        ctx.fillStyle = '#f1c40f';
+        ctx.font = "bold 15px 'Courier New'";
+        ctx.textAlign = "center";
+        ctx.fillText("[PREMI SPAZIO o E PER DEPOSITARE NELLA CASSAFORTE]", width / 2, height - 75);
+    }
+
     drawMinimap();
     updateUI();
 }
 
-// Iniezione e avvio
+// Iniezione e avvio iniziale
 requestAnimationFrame(gameLoop);
