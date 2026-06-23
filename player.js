@@ -1,8 +1,8 @@
 // =========================================================================
-// LABYRINTH ECONOMY - GIOCATORE, PROFILO DI RISCHIO E INPUT TASTIERA/MOUSE
+// LABYRINTH ECONOMY - GIOCATORE, STATO FINANZIARIO E INPUT TASTIERA/MOUSE
 // =========================================================================
 
-// Configurazione iniziale del profilo finanziario del trader/giocatore
+// Configurazione del profilo economico e di posizionamento del giocatore
 let player = { 
     x: 1.5, 
     y: 1.5, 
@@ -10,28 +10,41 @@ let player = {
     dirY: 0.0, 
     planeX: 0.0, 
     planeY: 0.66, 
-    bankAccount: 1000,     // Corrisponde a #health nella UI (Liquidità corrente)
-    savedFunds: 0,         // Corrisponde a #shield nella UI (Fondo di Emergenza protetto)
-    riskMultiplier: 1.0,   // Corrisponde a #ammo nella UI (Moltiplicatore delle speculazioni)
-    happinessScore: 0,     // Corrisponde a #score nella UI (Punti Felicità/Vittoria)
-    isFrozen: false,       // Stato alterato: blocco delle transazioni da attacco Phishing
-    frozenTimer: 0         // Contatore per la durata del blocco informatico
+    bankAccount: 1000,     // Liquidità corrente (Mostrato come #health nella UI)
+    savedFunds: 0,         // Fondo di Emergenza Protetto (Mostrato come #shield nella UI)
+    riskMultiplier: 1.0,   // Moltiplicatore Punti proporzionale (Mostrato come #ammo nella UI)
+    happinessScore: 0,     // Punti Felicità / Vittoria (Mostrato come #score nella UI)
+    isFrozen: false,       // Stato alterato: blocco transazioni da attacco Phishing
+    frozenTimer: 0         // Contatore dei frame per la durata del blocco informatico
 };
 
-// Registro dei tasti premuti in tempo reale e sensibilità del puntatore
+// Registro degli input in tempo reale
 let keys = {};
 let mouseSensitivity = 0.0025;
 
-// GESTIONE DINAMICA DELLA VELOCITÀ (Richiamata da engine.js ad ogni frame)
+/**
+ * GESTIONE DINAMICA DELLA VELOCITÀ
+ * Formula: Velocità Giocatore proporzionale al Conto Corrente (bankAccount)
+ * Richiamata da engine.js ad ogni fotogramma.
+ */
 function getMoveSpeed(baseSpeed) {
-    // Se l'account è congelato a causa del phishing, la velocità di movimento si azzera istantaneamente
+    // Se l'account è congelato dal phishing, la velocità si azzera all'istante
     if (player.isFrozen) return 0; 
     
-    // Più il moltiplicatore di rischio è alto, più il giocatore si muove velocemente nel labirinto
-    return baseSpeed * (1 + (player.riskMultiplier - 1) * 0.4);
+    // Velocità minima di base quando si è completamente al verde (0€)
+    const baseMinima = 0.02; 
+    
+    // Bonus proporzionale alla liquidità in tasca ("potere d'acquisto")
+    let speedBonus = player.bankAccount * 0.00005; 
+    
+    // Ritorna la velocità calcolata, con un tetto massimo (0.12) per evitare glitch fisici nei muri
+    return Math.min(baseMinima + speedBonus, 0.12);
 }
 
-// LOGICA STATO FINANZIARIO E PROFILO DI RISCHIO (Richiamata nel loop principale)
+/**
+ * LOGICA STATO FINANZIARIO E MOLTIPLICATORI
+ * Aggiorna i coefficienti economici. Richiamata nel loop principale.
+ */
 function updatePlayerFinanceState() {
     // 1. Gestione del timer di sblocco dal Phishing
     if (player.isFrozen) {
@@ -42,43 +55,66 @@ function updatePlayerFinanceState() {
         }
     }
 
-    // 2. Controllo Manuale del Rischio (Meccanica di Speculazione)
-    // Tenendo premuto SHIFT o lo SPAZIO, il giocatore forza investimenti aggressivi ad alto rischio
-    if (keys['shift'] || keys[' ']) {
-        if (player.riskMultiplier < 3.0) {
-            player.riskMultiplier += 0.02; // Incremento progressivo della volatilità del portfolio
-        }
-    } else {
-        // Se si gioca in modo prudente (tasti rilasciati), il profilo di rischio si stabilizza verso la linea base
-        if (player.riskMultiplier > 1.0) {
-            player.riskMultiplier -= 0.015;
+    // 2. Calcolo del Moltiplicatore Punti (riskMultiplier)
+    // È direttamente proporzionale al Conto Corrente (Es: 1000€ = x1.0, 2000€ = x2.0)
+    // Sotto i 100€ scende sotto l'1.0, fino a un minimo di stabilità di 0.1
+    player.riskMultiplier = Math.max(0.1, parseFloat((player.bankAccount / 1000).toFixed(1)));
+}
+
+/**
+ * INTERAZIONE CASSAFORTE (FONDO DI EMERGENZA)
+ * Sposta tutta la liquidità volatile dalle tasche alla cassaforte blindata.
+ * Verrà invocata da engine.js quando il giocatore preme il tasto azione vicino alla cassaforte.
+ */
+function executeSafeDeposit() {
+    if (player.bankAccount > 0) {
+        player.savedFunds += player.bankAccount;
+        player.bankAccount = 0; // Tasche completamente vuote!
+        
+        // Riproduce il feedback audio se la funzione esiste nel modulo audio
+        if (typeof playScoreSound === 'function') {
+            playScoreSound();
         }
     }
 }
 
-// GESTIONE DEL MOUSE (Rotazione matematica della visuale pseudo-3D tramite Raycasting)
+// =========================================================================
+// GESTIONE INPUT (MOUSE & TASTIERA)
+// =========================================================================
+
+// Rotazione della visuale 3D tramite Raycasting con il movimento del mouse
 document.addEventListener('mousemove', e => {
     let canvas = document.getElementById('gameCanvas');
-    // Esegue la rotazione solo se il mouse è catturato (Pointer Lock) e il gioco è attivo
-    if (document.pointerLockElement === canvas && typeof gameOver !== 'undefined' && !gameOver) {
+    
+    // Esegue la rotazione solo se il mouse è catturato tramite Pointer Lock e il gioco non è finito
+    if (document.pointerLockElement === canvas && (typeof gameOver === 'undefined' || !gameOver)) {
         let mouseX = e.movementX;
         let rotSpeed = mouseX * mouseSensitivity;
         
-        // Calcolo della rotazione del vettore di direzione (DirX/DirY)
+        // Rotazione del vettore di direzione (DirX/DirY)
         let oldDirX = player.dirX;
         player.dirX = player.dirX * Math.cos(rotSpeed) - player.dirY * Math.sin(rotSpeed);
         player.dirY = oldDirX * Math.sin(rotSpeed) + player.dirY * Math.cos(rotSpeed);
         
-        // Calcolo della rotazione del vettore del piano della telecamera (PlaneX/PlaneY)
+        // Rotazione del vettore del piano della telecamera (PlaneX/PlaneY)
         let oldPlaneX = player.planeX;
         player.planeX = player.planeX * Math.cos(rotSpeed) - player.planeY * Math.sin(rotSpeed);
         player.planeY = oldPlaneX * Math.sin(rotSpeed) + player.planeY * Math.cos(rotSpeed);
     }
 });
 
-// GESTIONE EVENTI TASTIERA (Mappatura continua degli input)
+// Ascolto e registrazione continua della pressione dei tasti
 window.addEventListener('keydown', e => {
-    keys[e.key.toLowerCase()] = true;
+    let keyName = e.key.toLowerCase();
+    keys[keyName] = true;
+    
+    // Mappatura dei tasti di interazione (Spazio o 'E') per la Cassaforte
+    if (keyName === ' ' || keyName === 'e') {
+        // Se la funzione di controllo prossimità esiste nell'engine, viene notificata l'intenzione
+        if (typeof checkSafeInteraction === 'function') {
+            checkSafeInteraction();
+        }
+    }
 });
 
 window.addEventListener('keyup', e => {
