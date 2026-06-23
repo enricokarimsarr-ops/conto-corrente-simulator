@@ -1,8 +1,8 @@
 // =========================================================
-// GESTIONE ELEMENTI ECONOMICI E MINACCE (CON IMMAGINI REALI)
+// GESTIONE ELEMENTI ECONOMICI E MINACCE (STRUTTURA DEFINITIVA)
 // =========================================================
 
-// 1. CARICAMENTO ASSET GRAFICI
+// 1. CARICAMENTO ASSET GRAFICI (Un file reale distinto per ogni tipo)
 const immaginiGioco = {};
 
 function caricaImmagine(chiave, percorso) {
@@ -10,16 +10,18 @@ function caricaImmagine(chiave, percorso) {
     immaginiGioco[chiave].src = percorso;
 }
 
-// Carichiamo i tuoi file PNG
-caricaImmagine('salary', 'soldi.png');
-caricaImmagine('safe', 'cassaforte.png');
-caricaImmagine('inflation', 'fishhook.png'); // Usiamo l'amo da pesca per il mostro dell'inflazione!
-caricaImmagine('bill', 'fishhook.png');      // Puoi cambiarlo con un'altra immagine se vuoi
-caricaImmagine('phishing', 'fishhook.png');  // Puoi cambiarlo con un'altra immagine se vuoi
+// Assicurati che i nomi dei file nella tua cartella corrispondano a questi:
+caricaImmagine('salary', 'soldi.png');         // Soldi da raccogliere (Aumenta Liquidità/Conto)
+caricaImmagine('luxury', 'lusso.png');         // Sfizi / Beni di lusso (Aumenta Felicità)
+caricaImmagine('safe', 'cassaforte.png');     // Cassaforte (Sposta fondi nel Fondo protetto)
+caricaImmagine('bill', 'bolletta.png');       // Bolletta imprevista (Scadenza a tempo)
+caricaImmagine('phishing', 'fishhook.png');   // Amo da pesca statico (Trappola informatica che congela)
+caricaImmagine('inflation', 'mostro.png');     // Mostro dell'inflazione (Nemico mobile nel labirinto)
 
 let enemies = [];
 let items = [];
 
+// 2. DATABASE DEI LIVELLI (Mappatura coerente al 100%)
 const levelSpritesDatabase = {
     1: {
         enemies: [
@@ -65,6 +67,7 @@ const levelSpritesDatabase = {
 function LoadLevelSprites(levelNumber) {
     const levelData = levelSpritesDatabase[levelNumber];
     if (!levelData) return;
+    // Clona gli oggetti per evitare di modificare permanentemente il database durante il gameplay
     enemies = levelData.enemies.map(enemy => ({ ...enemy }));
     items = levelData.items.map(item => ({ ...item }));
 }
@@ -86,13 +89,14 @@ function respawnItem(item) {
     }, 7000); 
 }
 
-// 2. MOTORE DI DISEGNO AGGIORNATO PER IMMAGINI PNG
+// 3. MOTORE DI RENDERING AGGIORNATO (Senza ricicli confusi)
 function drawSprites(ctx, player, width, height, zBuffer, globalAnimTime) {
     let sprites = [];
+    // Raggruppa solo le entità attive sulla mappa
     items.forEach(item => { if (item.active) sprites.push({ x: item.x, y: item.y, type: item.type }); });
     enemies.forEach(enemy => { if (enemy.alive) sprites.push({ x: enemy.x, y: enemy.y, type: enemy.type, health: enemy.health }); });
 
-    // Ordina gli sprite dal più lontano al più vicino
+    // Ordinamento dal più lontano al più vicino (algoritmo del pittore fondamentale per il Raycasting)
     sprites.sort((a, b) => {
         let distA = ((player.x - a.x) * (player.x - a.x) + (player.y - a.y) * (player.y - a.y));
         let distB = ((player.x - b.x) * (player.x - b.x) + (player.y - b.y) * (player.y - b.y));
@@ -109,9 +113,11 @@ function drawSprites(ctx, player, width, height, zBuffer, globalAnimTime) {
         if (transformY > 0) {
             let spriteScreenX = Math.floor((width / 2) * (1 + transformX / transformY));
             
-            // Effetto ondeggiamento verticale (floating)
+            // Effetto ondeggiamento verticale oscillante continuo (floating)
             let bobbing = Math.sin(globalAnimTime * 2.0) * 12;
-            let scale = (sprite.type === 'inflation' && sprite.health > 10) ? 2.0 : 1.0; 
+            
+            // Gestione scala: l'Inflazione Boss del livello 3 (health > 10) appare gigante
+            let scale = (sprite.type === 'inflation' && sprite.health > 10) ? 2.5 : 1.0; 
             
             let spriteHeight = Math.abs(Math.floor(height / transformY)) * scale;
             let spriteWidth = Math.abs(Math.floor(height / transformY)) * scale;
@@ -119,19 +125,26 @@ function drawSprites(ctx, player, width, height, zBuffer, globalAnimTime) {
             let drawStartX = Math.floor(-spriteWidth / 2 + spriteScreenX);
             let drawStartY = Math.floor(-spriteHeight / 2 + height / 2 + bobbing);
 
-            // Controllo dello Z-Buffer: disegna l'immagine solo se non è nascosta dietro un muro
-            // Controlliamo il centro dell'oggetto per semplicità e performance con le immagini intere
+            // Controllo della visibilità tramite Z-Buffer (evita che gli sprite varchino i muri)
             let centroX = Math.floor(spriteScreenX);
             if (centroX >= 0 && centroX < width && transformY < zBuffer[centroX]) {
                 
-                // Seleziona l'immagine corretta caricata in precedenza
                 let img = immaginiGioco[sprite.type];
                 
-                // Gestione di sicurezza se un'immagine non ha un file dedicato (es. luxury)
-                if (!img) img = immaginiGioco['salary']; 
-
-                // DISEGNA L'IMMAGINE PNG SUL CANVAS
-                ctx.drawImage(img, drawStartX, drawStartY, spriteWidth, spriteHeight);
+                // Se il file d'immagine esiste ed è caricato correttamente, disegnalo
+                if (img && img.complete && img.naturalWidth !== 0) {
+                    ctx.drawImage(img, drawStartX, drawStartY, spriteWidth, spriteHeight);
+                } else {
+                    // FALLBACK: Se dimentichi un file PNG nella cartella, disegna un cubo colorato di emergenza
+                    if (sprite.type === 'inflation' || sprite.type === 'phishing' || sprite.type === 'bill') {
+                        ctx.fillStyle = '#e74c3c'; // Rosso per le minacce/scadenze
+                    } else if (sprite.type === 'luxury') {
+                        ctx.fillStyle = '#f1c40f'; // Oro per gli sfizi
+                    } else {
+                        ctx.fillStyle = '#2ecc71'; // Verde per i guadagni/sicurezza
+                    }
+                    ctx.fillRect(drawStartX, drawStartY, spriteWidth, spriteHeight);
+                }
             }
         }
     });
