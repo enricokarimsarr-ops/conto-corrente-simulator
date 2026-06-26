@@ -3,63 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Labyrinth Economy: Il Prezzo del Rischio</title>
+    <title>Pac-Man Finanziario - Educazione Finanziaria</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        #floor-transition {
-            display: none;
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(10, 15, 10, 0.98);
-            color: #2ecc71;
-            font-family: 'Courier New', Courier, monospace;
-            text-align: center;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            z-index: 10;
-            border: 4px solid #27ae60;
-            box-sizing: border-box;
-        }
-        #floor-transition.active {
-            display: flex;
-        }
-    </style>
 </head>
 <body>
 
-    <h1>LABYRINTH ECONOMY</h1>
-    
-    <div id="canvas-container">
-        <canvas id="gameCanvas" width="640" height="480"></canvas>
-        <div id="ui">
-            <div>CONTO: <span id="health" style="color: #2ecc71;">1000</span>€</div>
-            <div>FONDO: <span id="shield" style="color: #3498db;">0</span>€</div>
-            <div>RISCHIO: x<span id="ammo" style="color: #e74c3c;">1.0</span></div>
-            <div>FELICITÀ: <span id="score" style="color: #f1c40f;">0</span></div>
-            <div>TEMPO: <span id="timer" style="color: #e67e22;">60</span>s</div>
+    <div id="game-wrapper">
+        <h1>Pac-Man Finanziario</h1>
+        
+        <div id="financial-ui">
+            <div class="ui-box">Conto Corrente: <span id="balance">500</span>€</div>
+            <div class="ui-box">Livello: <span id="current-level">1</span>/3</div>
+            <div class="ui-box">Stato: <span id="status">Stabile</span></div>
         </div>
 
-        <div id="floor-transition">
-            <h2 id="transition-title" style="font-size: 32px; color: #2ecc71; text-shadow: 3px 3px 5px #000; margin: 0 0 15px 0; letter-spacing: 2px;"></h2>
-            <p id="transition-subtitle" style="font-size: 18px; color: #d5dbdb; text-shadow: 2px 2px #000; margin: 0; max-width: 80%; line-height: 1.5;"></p>
+        <canvas id="gameCanvas" width="450" height="450"></canvas>
+        
+        <div id="instructions">
+            <p>⌨️ Usa le frecce direzionali per muoverti</p>
+            <p><span style="color: yellow;">●</span> Soldi (+10€) | <span style="color: #00ff00; font-size: 1.2em;">🔶</span> Investimenti (Superpotere) | <span style="color: #ff3333;">🍒</span> Bollette (Evitale o vai in Bancarotta!)</p>
         </div>
-    </div>
-
-    <div class="instructions">
-        <strong>[SIMULATORE DI MANAGEMENT FINANZIARIO E DI RISCHIO]</strong><br>
-        1. Clicca sul canvas per bloccare la visuale e avviare il sintetizzatore di mercato.<br>
-        <strong>MOVIMENTO:</strong> Tasti <strong>W, A, S, D</strong> o Frecce | <strong>VISUALE:</strong> Muovi il mouse<br>
-        <strong>STRATEGIA:</strong> Raccogli gli stipendi e gli sfizi. Tocca le <strong>Cassaforti</strong> per salvare i liquidi nel Fondo prima che l'Inflazione ti colpisca!
     </div>
 
     <script src="maps.js"></script>
     <script src="audio.js"></script>
-    <script src="player.js"></script>
     <script src="sprites.js"></script>
+    <script src="player.js"></script>
     <script src="engine.js"></script>
 
 </body>
