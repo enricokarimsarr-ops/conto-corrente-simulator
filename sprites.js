@@ -10,15 +10,15 @@ function caricaImmagine(chiave, percorso) {
     immaginiGioco[chiave].src = percorso;
 }
 
-// Caricamento dei file presenti nella tua cartella
-caricaImmagine('salary', 'soldi.png');         // Guadagno base
-caricaImmagine('luxury1', 'lusso.png');        // Primo sfizio (es. vestito)
-caricaImmagine('luxury2', 'lussso.png');       // Secondo sfizio (es. diamante)
-caricaImmagine('luxury3', 'lusssso.png');      // Terzo sfizio (es. altro lusso)
-caricaImmagine('safe', 'cassaforte.png');       // Cassaforte per protezione fondi
-caricaImmagine('bill', 'boletta.png');         // Bolletta imprevista a tempo
-caricaImmagine('phishing', 'fishhook.png');     // Amo da pesca statico (trappola)
-caricaImmagine('inflation', 'mostro.png');     // Mostro mobile dell'inflazione
+// Caricamento dei file presenti nella tua cartella (NOMI ORIGINALI UTENTE)
+caricaImmagine('salary', 'soldi.png');          // Il tuo sacco di soldi
+caricaImmagine('luxury1', 'oro.png');           // Sfizio 1
+caricaImmagine('luxury2', 'diamanti.png');      // Sfizio 2
+caricaImmagine('luxury3', 'scarpe.png');        // Sfizio 3
+caricaImmagine('safe', 'cassafortevera1.png');   // La tua cassaforte
+caricaImmagine('bill', 'Boletta1.png.png');     // La bolletta (mantenuta doppia estensione)
+caricaImmagine('phishing', 'Pishing.png');      // Il phishing (mantenuto senza la prima 'h')
+caricaImmagine('inflation', 'inflazione.png');  // Il mostro dell'inflazione
 
 let enemies = [];
 let items = [];
