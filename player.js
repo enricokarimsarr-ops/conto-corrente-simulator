@@ -1,117 +1,119 @@
-// =========================================================================
-// LABYRINTH ECONOMY - GIOCATORE, STATO FINANZIARIO E INPUT TASTIERA/MOUSE
-// =========================================================================
+class Player {
+    constructor() {
+        this.speed = 3; // Deve dividere perfettamente TILE_SIZE (30)
+        this.reset();
+    }
 
-// Configurazione del profilo economico e di posizionamento del giocatore
-let player = { 
-    x: 1.5, 
-    y: 1.5, 
-    dirX: 1.0, 
-    dirY: 0.0, 
-    planeX: 0.0, 
-    planeY: 0.66, 
-    bankAccount: 1000,     // Liquidità corrente (Mostrato come #health nella UI)
-    savedFunds: 0,         // Fondo di Emergenza Protetto (Mostrato come #shield nella UI)
-    riskMultiplier: 1.0,   // Moltiplicatore Punti proporzionale (Mostrato come #ammo nella UI)
-    happinessScore: 0,     // Punti Felicità / Vittoria (Mostrato come #score nella UI)
-    isFrozen: false,       // Stato alterato: blocco transazioni da attacco Phishing
-    frozenTimer: 0         // Contatore dei frame per la durata del blocco informatico
-};
+    // Riporta il giocatore al centro (chiamato a inizio gioco o cambio livello)
+    reset() {
+        this.gridX = 7; // Riga 7, Colonna 7 su maps.js (lo '0')
+        this.gridY = 7;
+        this.x = this.gridX * TILE_SIZE;
+        this.y = this.gridY * TILE_SIZE;
+        
+        // Direzione attuale (fermo all'inizio)
+        this.dirX = 0;
+        this.dirY = 0;
+        
+        // Buffer per la prossima mossa (permette di svoltare fluidamente prima dell'incrocio)
+        this.nextDirX = 0;
+        this.nextDirY = 0;
 
-// Registro degli input in tempo reale
-let keys = {};
-let mouseSensitivity = 0.0025;
+        this.radius = TILE_SIZE / 2 - 2; // Raggio del cerchio del salvadanaio
+        this.angle = 0.2; // Per l'animazione della bocca stile Pac-Man
+        this.mouthSpeed = 0.02;
+    }
 
-/**
- * GESTIONE DINAMICA DELLA VELOCITÀ CORRETTA
- * Previene l'immobilità a 0€ fornendo una velocità fluida di movimento.
- */
-function getMoveSpeed(baseSpeed) {
-    // Se l'account è congelato dal phishing, la velocità si riduce drasticamente per simulare l'attacco
-    if (player.isFrozen) return 0.01; 
-    
-    // Alziamo la base minima a 0.035 così quando depositi tutto a 0€ puoi comunque correre a cercare stipendi
-    const baseMinima = 0.035; 
-    
-    // Bonus proporzionale alla liquidità corrente nel portafoglio
-    let speedBonus = player.bankAccount * 0.00005; 
-    
-    // Ritorna la velocità calcolata, con un tetto massimo (0.12) per evitare glitch fisici nei muri
-    return Math.min(baseMinima + speedBonus, 0.12);
-}
-
-/**
- * LOGICA STATO FINANZIARIO E MOLTIPLICATORI
- * Aggiorna i coefficienti economici. Richiamata nel loop principale.
- */
-function updatePlayerFinanceState() {
-    // 1. Gestione del timer di sblocco dal Phishing
-    if (player.isFrozen) {
-        player.frozenTimer--;
-        if (player.frozenTimer <= 0) {
-            player.isFrozen = false;
-            player.frozenTimer = 0;
+    // Ascolta i tasti premuti e imposta la PROSSIMA direzione desiderata
+    handleInput(key) {
+        switch (key) {
+            case "ArrowUp":
+                this.nextDirX = 0; this.nextDirY = -1;
+                break;
+            case "ArrowDown":
+                this.nextDirX = 0; this.nextDirY = 1;
+                break;
+            case "ArrowLeft":
+                this.nextDirX = -1; this.nextDirY = 0;
+                break;
+            case "ArrowRight":
+                this.nextDirX = 1; this.nextDirY = 0;
+                break;
         }
     }
 
-    // 2. Calcolo del Moltiplicatore Punti (riskMultiplier)
-    // È direttamente proporzionale al Conto Corrente (Es: 1000€ = x1.0, 2000€ = x2.0)
-    // Sotto i 100€ scende sotto l'1.0, fino a un minimo di stabilità di 0.1
-    player.riskMultiplier = Math.max(0.1, parseFloat((player.bankAccount / 1000).toFixed(1)));
-}
+    // Controlla se la cella d'arrivo è un muro (1)
+    isWall(nextGridX, nextGridY, currentMap) {
+        // Controllo out of bounds di sicurezza
+        if (nextGridY < 0 || nextGridY >= GRID_ROWS || nextGridX < 0 || nextGridX >= GRID_COLS) {
+            return true;
+        }
+        return currentMap[nextGridY][nextGridX] === 1;
+    }
 
-/**
- * INTERAZIONE CASSAFORTE (FONDO DI EMERGENZA)
- * Sposta tutta la liquidità volatile dalle tasche alla cassaforte blindata.
- */
-function executeSafeDeposit() {
-    if (player.bankAccount > 0) {
-        player.savedFunds += player.bankAccount;
-        player.bankAccount = 0; // Tasche completamente vuote!
-        
-        if (typeof playScoreSound === 'function') {
-            playScoreSound();
+    // Aggiornamento della logica di movimento
+    update(currentMap) {
+        // SIAMO ALLINEATI ALLA GRIGLIA?
+        // Controlliamo se il movimento pixel è perfettamente sopra una cella
+        if (this.x % TILE_SIZE === 0 && this.y % TILE_SIZE === 0) {
+            this.gridX = this.x / TILE_SIZE;
+            this.gridY = this.y / TILE_SIZE;
+
+            // 1. Prova a girare nella direzione prenotata dal giocatore (nextDir)
+            if (!this.isWall(this.gridX + this.nextDirX, this.gridY + this.nextDirY, currentMap)) {
+                this.dirX = this.nextDirX;
+                this.dirY = this.nextDirY;
+            }
+            
+            // 2. Se anche la direzione attuale sbatte contro un muro, fermati
+            if (this.isWall(this.gridX + this.dirX, this.gridY + this.dirY, currentMap)) {
+                this.dirX = 0;
+                this.dirY = 0;
+            }
+        }
+
+        // Muovi effettivamente il player pixel per pixel
+        this.x += this.dirX * this.speed;
+        this.y += this.dirY * this.speed;
+
+        // Animazione minimale della bocca se si sta muovendo
+        if (this.dirX !== 0 || this.dirY !== 0) {
+            this.angle += this.mouthSpeed;
+            if (this.angle > 0.4 || this.angle < 0.05) {
+                this.mouthSpeed = -this.mouthSpeed;
+            }
         }
     }
+
+    // Disegna il player sul Canvas (Un cerchio giallo/oro stile moneta con la bocca)
+    draw(ctx) {
+        ctx.save();
+        // Trasla la matrice al centro del player per gestire la rotazione della bocca
+        ctx.translate(this.x + TILE_SIZE / 2, this.y + TILE_SIZE / 2);
+        
+        // Ruota la faccia in base alla direzione di movimento
+        let rotation = 0;
+        if (this.dirX === 1) rotation = 0;
+        if (this.dirX === -1) rotation = Math.PI;
+        if (this.dirY === 1) rotation = Math.PI / 2;
+        if (this.dirY === -1) rotation = -Math.PI / 2;
+        ctx.rotate(rotation);
+
+        // Disegna il corpo (Moneta/Salvadanaio)
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, this.angle * Math.PI, (2 - this.angle) * Math.PI);
+        ctx.lineTo(0, 0);
+        ctx.fillStyle = "#f1c40f"; // Oro/Giallo monetina
+        ctx.fill();
+        ctx.closePath();
+
+        // Disegna l'occhio
+        ctx.beginPath();
+        ctx.arc(2, -8, 2.5, 0, 2 * Math.PI);
+        ctx.fillStyle = "#000000";
+        ctx.fill();
+        ctx.closePath();
+
+        ctx.restore();
+    }
 }
-
-// =========================================================================
-// GESTIONE INPUT (MOUSE & TASTIERA)
-// =========================================================================
-
-// Rotazione della visuale 3D tramite Raycasting con il movimento del mouse
-document.addEventListener('mousemove', e => {
-    let canvas = document.getElementById('gameCanvas');
-    
-    if (document.pointerLockElement === canvas && (typeof gameOver === 'undefined' || !gameOver)) {
-        let mouseX = e.movementX;
-        let rotSpeed = mouseX * mouseSensitivity;
-        
-        // Rotazione del vettore di direzione (DirX/DirY)
-        let oldDirX = player.dirX;
-        player.dirX = player.dirX * Math.cos(rotSpeed) - player.dirY * Math.sin(rotSpeed);
-        player.dirY = oldDirX * Math.sin(rotSpeed) + player.dirY * Math.cos(rotSpeed);
-        
-        // Rotazione del vettore del piano della telecamera (PlaneX/PlaneY)
-        let oldPlaneX = player.planeX;
-        player.planeX = player.planeX * Math.cos(rotSpeed) - player.planeY * Math.sin(rotSpeed);
-        player.planeY = oldPlaneX * Math.sin(rotSpeed) + player.planeY * Math.cos(rotSpeed);
-    }
-});
-
-// Ascolto e registrazione continua della pressione dei tasti
-window.addEventListener('keydown', e => {
-    let keyName = e.key.toLowerCase();
-    keys[keyName] = true;
-    
-    // Mappatura dei tasti di interazione (Spazio o 'E') per la Cassaforte
-    if (keyName === ' ' || keyName === 'e') {
-        if (typeof checkSafeInteraction === 'function') {
-            checkSafeInteraction();
-        }
-    }
-});
-
-window.addEventListener('keyup', e => {
-    keys[e.key.toLowerCase()] = false;
-});
