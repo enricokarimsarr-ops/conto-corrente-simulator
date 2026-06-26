@@ -18,13 +18,13 @@ let bankruptcyReason = "";
 window.isTransitioning = false;
 
 // -------------------------------------------------------------------------
-// CORREZIONE ASSET E PARACADUTE DI SICUREZZA (Risolve gli elementi invisibili)
+// CARICAMENTO INVARIATO DEL MURO (Mantenuto originale come richiesto)
 // -------------------------------------------------------------------------
 const imgMuro = new Image();
 imgMuro.src = 'muromatrix.png';
 
 function applicaFallbackAsset() {
-    // Funzione disattivata: ora il motore usa direttamente le immagini reali caricate in sprites.js
+    // Funzione disattivata: il motore usa direttamente le immagini reali di sprites.js
     console.log("Asset grafici utente inizializzati.");
 }
 
@@ -78,7 +78,6 @@ function movePlayer() {
 // -------------------------------------------------------------------------
 // INTERAZIONE MANUALE CASSAFORTE (PILASTRO 2)
 // -------------------------------------------------------------------------
-// Invocata da player.js premendo SPAZIO o 'E'. Rimosso l'automatismo a collisione involontaria!
 function checkSafeInteraction() {
     if (gameOver || window.isTransitioning) return;
     
@@ -92,7 +91,7 @@ function checkSafeInteraction() {
             if (idist < 1.0) {
                 if (player.bankAccount > 0) {
                     player.savedFunds += player.bankAccount;
-                    player.bankAccount = 0; // Tasche svuotate completamente! Velocità al minimo, rischio azzerato
+                    player.bankAccount = 0; // Tasche svuotate completamente! Salvati in cassaforte
                     if (typeof playSafeSound === 'function') playSafeSound();
                 }
             }
@@ -114,7 +113,7 @@ function updateEntities(dt) {
             let dy = player.y - e.y;
             let dist = Math.sqrt(dx * dx + dy * dy);
             
-            // FILTRO ESSENZIALE: Solo il mostro dell'inflazione insegue il giocatore. Il Phishing resta statico.
+            // Solo il mostro dell'inflazione insegue il giocatore
             if (e.type === 'inflation') {
                 if (dist > 0.25) {
                     let nx = e.x + (dx / dist) * e.speed;
@@ -125,20 +124,18 @@ function updateEntities(dt) {
                 }
             }
             
-            // EFFETTO INFLAZIONE (PILASTRO 1 - Erosione in percentuale)
+            // EFFETTO INFLAZIONE (Erosione in percentuale sulla liquidità libera)
             if (dist < 0.45 && e.type === 'inflation') {
-                // Sottrae esattamente il 5% al secondo sulla base della liquidità corrente
                 let loss = player.bankAccount * 0.05 * dt;
-                
-                // Paracadute matematico: se il conto è bassissimo, garantisci un decremento minimo per poter scendere a 0
                 if (loss < 1 * dt && player.bankAccount > 0) loss = 1 * dt;
                 
                 player.bankAccount -= loss;
                 if (typeof playDrainSound === 'function') playDrainSound();
                 
-                if (player.bankAccount <= 0.5) {
+                // FIX LOGICA: Perdi solo se vai sotto zero. Se hai 0€ perché hai depositato, l'inflazione non ti uccide!
+                if (player.bankAccount < 0) {
                     player.bankAccount = 0;
-                    bankruptcyReason = "L'Inflazione Galoppante ha prosciugato tutta la tua liquidità libera!";
+                    bankruptcyReason = "L'Inflazione Galoppante ti ha mandato in debito profondo!";
                     gameOver = true;
                 }
             }
@@ -149,7 +146,7 @@ function updateEntities(dt) {
     items.forEach(item => {
         if (!item.active) return;
 
-        // Comportamento Scadenza Bolletta (Mantiene la sua logica temporale)
+        // Comportamento Scadenza Bolletta
         if (item.type === 'bill') {
             if (!item.timeLeft) item.timeLeft = 8.0; 
             item.timeLeft -= dt;
@@ -160,12 +157,14 @@ function updateEntities(dt) {
             }
 
             if (item.timeLeft <= 0) {
-                player.bankAccount = Math.floor(player.bankAccount / 2); // Penale dimezzamento conto
+                // FIX LOGICA: La bolletta scaduta applica una sanzione fissa di 150€.
+                player.bankAccount -= 150; 
                 item.active = false;
                 if (typeof playAlarmSound === 'function') playAlarmSound();
                 
-                if (player.bankAccount <= 0) {
-                    bankruptcyReason = "Sei andato in bancarotta per insolvenza! Troppe bollette ignorate.";
+                // Si va in Game Over solo se la sanzione ti manda sotto zero (in rosso)
+                if (player.bankAccount < 0) {
+                    bankruptcyReason = "Sei andato in bancarotta per insolvenza! Una bolletta arretrata ti ha mandato in rosso.";
                     gameOver = true;
                 }
                 respawnItem(item);
@@ -177,7 +176,7 @@ function updateEntities(dt) {
         let idy = player.y - item.y;
         let idist = Math.sqrt(idx * idx + idy * idy);
 
-        // Collisione ed assorbimento oggetti (Esclusa la Cassaforte che ora è manuale)
+        // Collisione ed assorbimento oggetti
         if (idist < 0.45) {
             if (item.type === 'salary') {
                 player.bankAccount += 350; 
@@ -194,7 +193,7 @@ function updateEntities(dt) {
             } 
             else if (item.type === 'phishing') {
                 player.isFrozen = true;
-                player.frozenTimer = 180; // 3 secondi di congelamento transazioni
+                player.frozenTimer = 180; // 3 secondi di rallentamento/congelamento transazioni
                 item.active = false;
                 if (typeof playGlitchSound === 'function') playGlitchSound();
                 respawnItem(item);
@@ -208,7 +207,7 @@ function updateEntities(dt) {
     });
 }
 
-// RIGENERAZIONE PROTETTA ELEMENTI (Previene crash di funzioni mancanti)
+// RIGENERAZIONE PROTETTA ELEMENTI
 function respawnItem(item) {
     if (gameOver) return;
     setTimeout(() => {
@@ -229,9 +228,7 @@ function respawnItem(item) {
     }, 6000);
 }
 
-// -------------------------------------------------------------------------
 // MOTORE DI RENDERING 3D (RAYCASTING PSEUDO-3D)
-// -------------------------------------------------------------------------
 function renderWalls() {
     let attualeMappa = (typeof map !== 'undefined') ? map : gameMaps[currentLevel];
     if (!attualeMappa) return;
@@ -333,9 +330,7 @@ function handleLevelCompletion() {
     }
 }
 
-// -------------------------------------------------------------------------
 // INTERFACCIA UTENTE E SCHERMATE DI STATO
-// -------------------------------------------------------------------------
 function drawVictoryScreen() {
     ctx.fillStyle = 'rgba(7, 18, 12, 0.96)'; ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = '#2ecc71'; ctx.font = "bold 34px 'Courier New'"; ctx.textAlign = "center";
@@ -419,12 +414,10 @@ function resetGame() {
     requestAnimationFrame(gameLoop);
 }
 
-// -------------------------------------------------------------------------
 // LOOP CENTRALE DEL SIMULATORE
-// -------------------------------------------------------------------------
 function gameLoop(currentTime) {
     if (gameOver) {
-        if (player.bankAccount <= 0) drawGameOverScreen();
+        if (player.bankAccount < 0) drawGameOverScreen();
         else drawVictoryScreen();
         return;
     }
@@ -456,7 +449,7 @@ function gameLoop(currentTime) {
         drawSprites(ctx, player, width, height, zBuffer, globalAnimTime);
     }
     
-    // INTEGRAZIONE: Mostra a schermo il prompt interattivo quando si è vicini alla Cassaforte
+    // INTEGRAZIONE: Prompt a schermo vicino alla Cassaforte
     let vicinoCassaforte = false;
     items.forEach(item => {
         if (item.active && item.type === 'safe') {
@@ -475,5 +468,5 @@ function gameLoop(currentTime) {
     updateUI();
 }
 
-// Iniezione e avvio iniziale
+// Avvio iniziale
 requestAnimationFrame(gameLoop);
