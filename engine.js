@@ -14,8 +14,9 @@ class GameEngine {
         this.gameState = "PLAYING"; // PLAYING, GAMEOVER, WIN
         this.gameTime = 0;
 
-        // Inizializza il giocatore e carica la mappa
+        // Inizializza il giocatore, il fantasma e carica la mappa
         this.player = new Player();
+        this.ghost = new Ghost(1, 1, "#ff3333"); // L'Inflazione parte in alto a sinistra (riga 1, colonna 1)
         this.loadLevel(this.currentLevelIndex);
 
         // Ascolto dei tasti
@@ -42,6 +43,7 @@ class GameEngine {
         // Clona l'array bidimensionale per non sovrascrivere la mappa originale
         this.currentMap = MAPS[levelIndex].map(row => [...row]);
         this.player.reset();
+        this.ghost.reset(1, 1); // Resetta il fantasma all'angolo a ogni cambio livello
         this.levelEl.innerText = this.currentLevelIndex + 1;
         this.updateUI();
     }
@@ -67,7 +69,7 @@ class GameEngine {
         }
     }
 
-    // Gestione delle collisioni di Pac-Man con gli oggetti economici
+    // Gestione delle collisioni di Pac-Man con gli oggetti economici e il nemico
     checkCollisions() {
         // Calcola in quale cella si trova esattamente il centro del player
         let centerX = this.player.x + TILE_SIZE / 2;
@@ -98,6 +100,17 @@ class GameEngine {
             this.currentMap[gridY][gridX] = 0;
             this.balance -= 150;
             AudioManager.playBill();
+            this.updateUI();
+        }
+
+        // Collisione con il Fantasma dell'Inflazione (Calcolo distanza tra i centri)
+        let distX = Math.abs((this.player.x + TILE_SIZE / 2) - (this.ghost.x + TILE_SIZE / 2));
+        let distY = Math.abs((this.player.y + TILE_SIZE / 2) - (this.ghost.y + TILE_SIZE / 2));
+        
+        if (distX < TILE_SIZE / 2 && distY < TILE_SIZE / 2) {
+            this.balance -= 200; // L'inflazione ti prosciuga il conto!
+            AudioManager.playBill(); // Riproduce l'effetto sonoro di perdita soldi
+            this.ghost.reset(1, 1);  // Rimanda il fantasma all'angolo iniziale
             this.updateUI();
         }
     }
@@ -147,13 +160,15 @@ class GameEngine {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         if (this.gameState === "PLAYING") {
-            // 2. Aggiorna logica
+            // 2. Aggiorna logica del player e del fantasma
             this.player.update(this.currentMap);
+            this.ghost.update(this.currentMap);
             this.checkCollisions();
 
             // 3. Disegna elementi
             Sprites.drawMap(this.ctx, this.currentMap, this.gameTime);
             this.player.draw(this.ctx);
+            this.ghost.draw(this.ctx);
             
         } else if (this.gameState === "GAMEOVER") {
             Sprites.drawMap(this.ctx, this.currentMap, this.gameTime);
