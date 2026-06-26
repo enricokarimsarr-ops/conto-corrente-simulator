@@ -23,23 +23,10 @@ window.isTransitioning = false;
 const imgMuro = new Image();
 imgMuro.src = 'muromatrix.png';
 
-// Dal momento che 'soldi.png' e gli asset dello 'sfizio' non sono fisicamente presenti,
-// intercettiamo il dizionario globale delle immagini per mapparli su file validi (cassaforte e amo).
-// In questo modo eviti elementi invisibili a schermo e il motore grafico li disegnerà correttamente.
 function applicaFallbackAsset() {
-    if (typeof immaginiGioco !== 'undefined') {
-        if (!immaginiGioco['salary'] || immaginiGioco['salary'].src.includes('soldi.png')) {
-            immaginiGioco['salary'] = new Image();
-            immaginiGioco['salary'].src = 'cassaforte.png'; // Fallback visivo
-        }
-        if (!immaginiGioco['luxury']) {
-            immaginiGioco['luxury'] = new Image();
-            immaginiGioco['luxury'].src = 'fishhook.png'; // Fallback visivo
-        }
-    }
+    // Funzione disattivata: ora il motore usa direttamente le immagini reali caricate in sprites.js
+    console.log("Asset grafici utente inizializzati.");
 }
-// Eseguiamo il patch subito dopo il caricamento iniziale
-setTimeout(applicaFallbackAsset, 200);
 
 // -------------------------------------------------------------------------
 // REQUISITI DI INPUT E RESET
