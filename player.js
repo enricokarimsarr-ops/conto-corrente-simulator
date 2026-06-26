@@ -23,18 +23,17 @@ let keys = {};
 let mouseSensitivity = 0.0025;
 
 /**
- * GESTIONE DINAMICA DELLA VELOCITÀ
- * Formula: Velocità Giocatore proporzionale al Conto Corrente (bankAccount)
- * Richiamata da engine.js ad ogni fotogramma.
+ * GESTIONE DINAMICA DELLA VELOCITÀ CORRETTA
+ * Previene l'immobilità a 0€ fornendo una velocità fluida di movimento.
  */
 function getMoveSpeed(baseSpeed) {
-    // Se l'account è congelato dal phishing, la velocità si azzera all'istante
-    if (player.isFrozen) return 0; 
+    // Se l'account è congelato dal phishing, la velocità si riduce drasticamente per simulare l'attacco
+    if (player.isFrozen) return 0.01; 
     
-    // Velocità minima di base quando si è completamente al verde (0€)
-    const baseMinima = 0.02; 
+    // Alziamo la base minima a 0.035 così quando depositi tutto a 0€ puoi comunque correre a cercare stipendi
+    const baseMinima = 0.035; 
     
-    // Bonus proporzionale alla liquidità in tasca ("potere d'acquisto")
+    // Bonus proporzionale alla liquidità corrente nel portafoglio
     let speedBonus = player.bankAccount * 0.00005; 
     
     // Ritorna la velocità calcolata, con un tetto massimo (0.12) per evitare glitch fisici nei muri
@@ -64,14 +63,12 @@ function updatePlayerFinanceState() {
 /**
  * INTERAZIONE CASSAFORTE (FONDO DI EMERGENZA)
  * Sposta tutta la liquidità volatile dalle tasche alla cassaforte blindata.
- * Verrà invocata da engine.js quando il giocatore preme il tasto azione vicino alla cassaforte.
  */
 function executeSafeDeposit() {
     if (player.bankAccount > 0) {
         player.savedFunds += player.bankAccount;
         player.bankAccount = 0; // Tasche completamente vuote!
         
-        // Riproduce il feedback audio se la funzione esiste nel modulo audio
         if (typeof playScoreSound === 'function') {
             playScoreSound();
         }
@@ -86,7 +83,6 @@ function executeSafeDeposit() {
 document.addEventListener('mousemove', e => {
     let canvas = document.getElementById('gameCanvas');
     
-    // Esegue la rotazione solo se il mouse è catturato tramite Pointer Lock e il gioco non è finito
     if (document.pointerLockElement === canvas && (typeof gameOver === 'undefined' || !gameOver)) {
         let mouseX = e.movementX;
         let rotSpeed = mouseX * mouseSensitivity;
@@ -110,7 +106,6 @@ window.addEventListener('keydown', e => {
     
     // Mappatura dei tasti di interazione (Spazio o 'E') per la Cassaforte
     if (keyName === ' ' || keyName === 'e') {
-        // Se la funzione di controllo prossimità esiste nell'engine, viene notificata l'intenzione
         if (typeof checkSafeInteraction === 'function') {
             checkSafeInteraction();
         }
