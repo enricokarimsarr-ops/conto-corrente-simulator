@@ -1,55 +1,77 @@
+/* Reset e Stile Generale */
 body {
-    background-color: #0b0f12;
-    color: #ecf0f1;
-    font-family: 'Courier New', Courier, monospace;
-    text-align: center;
+    background-color: #0c1020;
+    color: #ffffff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
-    padding: 20px;
-    user-select: none;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
 }
+
+/* Contenitore Principale */
+#game-wrapper {
+    text-align: center;
+    background: #161c32;
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    border: 2px solid #2a355c;
+}
+
 h1 {
-    margin-bottom: 10px;
-    color: #2ecc71;
-    text-shadow: 0 0 10px rgba(46, 204, 113, 0.5);
-    letter-spacing: 3px;
-    font-weight: 900;
+    margin-top: 0;
+    font-size: 28px;
+    letter-spacing: 2px;
+    color: #4cd137;
+    text-shadow: 0 0 10px rgba(76, 209, 55, 0.4);
 }
-#canvas-container {
-    position: relative;
-    display: inline-block;
-    border: 4px solid #2c3e50;
-    box-shadow: 0 0 40px rgba(46, 204, 113, 0.15);
-    cursor: pointer;
-}
-canvas {
-    display: block;
-    background: #000;
-}
-#ui {
-    position: absolute;
-    bottom: 15px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 94%;
+
+/* Pannello Finanziario (UI) */
+#financial-ui {
     display: flex;
     justify-content: space-between;
-    font-size: 18px;
-    font-weight: bold;
-    color: #ecf0f1;
-    text-shadow: 2px 2px #000;
-    pointer-events: none;
-    background: rgba(15, 23, 30, 0.85);
+    margin-bottom: 20px;
+    gap: 10px;
+}
+
+.ui-box {
+    background: #1e2746;
     padding: 10px 15px;
-    border-radius: 6px;
-    border: 2px solid #34495e;
-    box-sizing: border-box;
-}
-.instructions {
-    margin-top: 15px;
-    color: #7f8c8d;
-    font-size: 13px;
-    line-height: 1.6;
-}
-span {
+    border-radius: 8px;
     font-weight: bold;
+    font-size: 14px;
+    flex: 1;
+    border: 1px solid #34447c;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
+}
+
+#balance {
+    color: #4cd137; /* Verde soldi */
+    font-size: 16px;
+}
+
+#status {
+    color: #00a8ff;
+    text-transform: uppercase;
+}
+
+/* Il Canvas di Gioco */
+canvas {
+    background-color: #05070f;
+    border: 4px solid #232b48;
+    border-radius: 8px;
+    display: block;
+    margin: 0 auto;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+/* Istruzioni in basso */
+#instructions {
+    margin-top: 20px;
+    font-size: 13px;
+    color: #a5b1c2;
+    line-height: 1.6;
 }
